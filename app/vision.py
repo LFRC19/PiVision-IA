@@ -1,36 +1,47 @@
 #!/usr/bin/env python3
 import argparse
 import cv2
+import os
+import time
+from datetime import datetime
 from app.multi_camera_manager import MultiCameraManager
 from app.camera_manager import CameraManager
+from app.frame_processor import FrameProcessor
 
-# --- Parseo de argumentos ---
+LOG_PATH = "log/eventos.log"
+PRINT_INTERVAL = 1.0  # segundos mínimo entre prints por cámara
+
+# Registrar evento en archivo
+def log_event(cam_id, tipo, mensaje):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(LOG_PATH, "a") as f:
+        f.write(f"{timestamp} | Cam {cam_id} | {tipo} | {mensaje}\n")
+
+# --- Argumentos desde terminal ---
 parser = argparse.ArgumentParser(
-    description="PiVision IA: detección de rostros headless con múltiples cámaras"
+    description="PiVision IA: detección de rostros + movimiento con múltiples cámaras"
 )
-parser.add_argument("--width", "-W", type=int, default=640, help="Ancho (px)")
-parser.add_argument("--height", "-H", type=int, default=480, help="Altura (px)")
-parser.add_argument("--fps", "-F", type=int, default=30, help="FPS")
+parser.add_argument("--width", "-W", type=int, default=640)
+parser.add_argument("--height", "-H", type=int, default=480)
+parser.add_argument("--fps", "-F", type=int, default=30)
 args = parser.parse_args()
 
-# --- Detectar cámaras disponibles ---
+# --- Detección de cámaras ---
 device_ids = CameraManager.detect_cameras()
 if not device_ids:
     print("[ERROR] No se encontraron cámaras disponibles.")
     exit(1)
 print(f"[INFO] Cámaras detectadas: {device_ids}")
 
-# --- Iniciar todos los streams ---
-mcam = MultiCameraManager(
-    device_ids=device_ids,
-    width=args.width,
-    height=args.height,
-    fps=args.fps
-)
+# --- Inicializar captura y procesador ---
+mcam = MultiCameraManager(device_ids, width=args.width, height=args.height, fps=args.fps)
+processor = FrameProcessor()
 mcam.start_all()
-print(f"[INFO] Iniciadas cámaras @ {args.width}x{args.height} @ {args.fps}fps")
 
-# --- Carga del modelo DNN ---
+# Control por cámara
+last_print = {cam_id: 0 for cam_id in device_ids}
+
+# --- Cargar modelo de detección facial ---
 net = cv2.dnn.readNetFromCaffe(
     "models/deploy.prototxt",
     "models/res10_300x300_ssd_iter_140000_fp16.caffemodel"
@@ -39,11 +50,22 @@ net = cv2.dnn.readNetFromCaffe(
 try:
     while True:
         frames = mcam.read_frames()
-        for dev_id, frame in frames.items():
+        for cam_id, frame in frames.items():
             if frame is None:
                 continue
 
-            # Preprocesamiento y detección
+            now = time.time()
+            gray = processor.preprocess(frame)
+
+            # --- Detección de movimiento ---
+            thresh, contours = processor.detect_motion(frame)
+            if contours and now - last_print[cam_id] >= PRINT_INTERVAL:
+                mensaje = f"{len(contours)} contornos detectados"
+                print(f"[Movimiento] Cam {cam_id}: {mensaje}")
+                log_event(cam_id, "movimiento", mensaje)
+                last_print[cam_id] = now
+
+            # --- Detección de rostros (DNN) ---
             blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), (104, 177, 123))
             net.setInput(blob)
             detections = net.forward()
@@ -51,13 +73,13 @@ try:
             h, w = frame.shape[:2]
             for i in range(detections.shape[2]):
                 conf = float(detections[0, 0, i, 2])
-                if conf > 0.5:
+                if conf > 0.5 and now - last_print[cam_id] >= PRINT_INTERVAL:
                     box = (detections[0, 0, i, 3:7] * [w, h, w, h]).astype("int")
                     x1, y1, x2, y2 = box
-                    print(
-                        f"[Cam {dev_id}] Rostro detectado: conf={conf:.2f} "
-                        f"coords=({x1},{y1})-({x2},{y2})"
-                    )
+                    mensaje = f"conf={conf:.2f}, coords=({x1},{y1})-({x2},{y2})"
+                    print(f"[Rostro] Cam {cam_id}: {mensaje}")
+                    log_event(cam_id, "rostro", mensaje)
+                    last_print[cam_id] = now
 
 except KeyboardInterrupt:
     print("\n[INFO] Interrumpido por el usuario")
