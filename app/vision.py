@@ -4,10 +4,12 @@ import cv2
 import os
 import time
 from datetime import datetime
+
 from app.multi_camera_manager import MultiCameraManager
 from app.camera_manager import CameraManager
 from app.frame_processor import FrameProcessor
 from app.face_detector import FaceDetector
+from app.face_mesh_processor import FaceMeshProcessor
 
 LOG_PATH = "log/eventos.log"
 PRINT_INTERVAL = 1.0  # segundos mínimo entre prints por cámara
@@ -17,25 +19,29 @@ def log_event(cam_id, tipo, mensaje):
     with open(LOG_PATH, "a") as f:
         f.write(f"{timestamp} | Cam {cam_id} | {tipo} | {mensaje}\n")
 
-parser = argparse.ArgumentParser(description="PiVision IA con MediaPipe y DNN")
+parser = argparse.ArgumentParser(description="PiVision IA: Caffe + MediaPipe + Movimiento")
 parser.add_argument("--width", "-W", type=int, default=640)
 parser.add_argument("--height", "-H", type=int, default=480)
 parser.add_argument("--fps", "-F", type=int, default=30)
 args = parser.parse_args()
 
+# Detectar cámaras
 device_ids = CameraManager.detect_cameras()
 if not device_ids:
     print("[ERROR] No se encontraron cámaras.")
     exit(1)
 print(f"[INFO] Cámaras detectadas: {device_ids}")
 
+# Inicializar componentes
 mcam = MultiCameraManager(device_ids, width=args.width, height=args.height, fps=args.fps)
 processor = FrameProcessor()
 mp_detector = FaceDetector()
-mcam.start_all()
+mesh_processor = FaceMeshProcessor()
 
+mcam.start_all()
 last_print = {cam_id: 0 for cam_id in device_ids}
 
+# Modelo DNN de Caffe
 net = cv2.dnn.readNetFromCaffe(
     "models/deploy.prototxt",
     "models/res10_300x300_ssd_iter_140000_fp16.caffemodel"
@@ -59,7 +65,7 @@ try:
                 log_event(cam_id, "movimiento", msg)
                 last_print[cam_id] = now
 
-            # Detección facial Caffe
+            # Detección facial (Caffe)
             blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), (104, 177, 123))
             net.setInput(blob)
             detections = net.forward()
@@ -75,7 +81,7 @@ try:
                     log_event(cam_id, "caffe_rostro", msg)
                     last_print[cam_id] = now
 
-            # Detección facial MediaPipe
+            # Detección facial (MediaPipe)
             mp_detections = mp_detector.detect(frame)
             if mp_detections:
                 for d in mp_detections:
@@ -86,6 +92,16 @@ try:
                         print(f"[MP-Face] Cam {cam_id}: {msg}")
                         log_event(cam_id, "mp_rostro", msg)
                         last_print[cam_id] = now
+
+            # Landmarks con FaceMesh
+            mesh_faces = mesh_processor.process(frame)
+            for face_idx, landmarks in enumerate(mesh_faces):
+                nose = landmarks[1]  # punto 1 = punta de nariz
+                if now - last_print[cam_id] >= PRINT_INTERVAL:
+                    msg = f"Face {face_idx}: Nose at {nose} [Mesh]"
+                    print(f"[Mesh] Cam {cam_id}: {msg}")
+                    log_event(cam_id, "landmarks", msg)
+                    last_print[cam_id] = now
 
 except KeyboardInterrupt:
     print("\n[INFO] Interrumpido por el usuario")
