@@ -7,41 +7,35 @@ from datetime import datetime
 from app.multi_camera_manager import MultiCameraManager
 from app.camera_manager import CameraManager
 from app.frame_processor import FrameProcessor
+from app.face_detector import FaceDetector
 
 LOG_PATH = "log/eventos.log"
 PRINT_INTERVAL = 1.0  # segundos mínimo entre prints por cámara
 
-# Registrar evento en archivo
 def log_event(cam_id, tipo, mensaje):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_PATH, "a") as f:
         f.write(f"{timestamp} | Cam {cam_id} | {tipo} | {mensaje}\n")
 
-# --- Argumentos desde terminal ---
-parser = argparse.ArgumentParser(
-    description="PiVision IA: detección de rostros + movimiento con múltiples cámaras"
-)
+parser = argparse.ArgumentParser(description="PiVision IA con MediaPipe y DNN")
 parser.add_argument("--width", "-W", type=int, default=640)
 parser.add_argument("--height", "-H", type=int, default=480)
 parser.add_argument("--fps", "-F", type=int, default=30)
 args = parser.parse_args()
 
-# --- Detección de cámaras ---
 device_ids = CameraManager.detect_cameras()
 if not device_ids:
-    print("[ERROR] No se encontraron cámaras disponibles.")
+    print("[ERROR] No se encontraron cámaras.")
     exit(1)
 print(f"[INFO] Cámaras detectadas: {device_ids}")
 
-# --- Inicializar captura y procesador ---
 mcam = MultiCameraManager(device_ids, width=args.width, height=args.height, fps=args.fps)
 processor = FrameProcessor()
+mp_detector = FaceDetector()
 mcam.start_all()
 
-# Control por cámara
 last_print = {cam_id: 0 for cam_id in device_ids}
 
-# --- Cargar modelo de detección facial ---
 net = cv2.dnn.readNetFromCaffe(
     "models/deploy.prototxt",
     "models/res10_300x300_ssd_iter_140000_fp16.caffemodel"
@@ -57,15 +51,15 @@ try:
             now = time.time()
             gray = processor.preprocess(frame)
 
-            # --- Detección de movimiento ---
+            # Movimiento
             thresh, contours = processor.detect_motion(frame)
             if contours and now - last_print[cam_id] >= PRINT_INTERVAL:
-                mensaje = f"{len(contours)} contornos detectados"
-                print(f"[Movimiento] Cam {cam_id}: {mensaje}")
-                log_event(cam_id, "movimiento", mensaje)
+                msg = f"{len(contours)} contornos detectados"
+                print(f"[Movimiento] Cam {cam_id}: {msg}")
+                log_event(cam_id, "movimiento", msg)
                 last_print[cam_id] = now
 
-            # --- Detección de rostros (DNN) ---
+            # Detección facial Caffe
             blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), (104, 177, 123))
             net.setInput(blob)
             detections = net.forward()
@@ -76,14 +70,26 @@ try:
                 if conf > 0.5 and now - last_print[cam_id] >= PRINT_INTERVAL:
                     box = (detections[0, 0, i, 3:7] * [w, h, w, h]).astype("int")
                     x1, y1, x2, y2 = box
-                    mensaje = f"conf={conf:.2f}, coords=({x1},{y1})-({x2},{y2})"
-                    print(f"[Rostro] Cam {cam_id}: {mensaje}")
-                    log_event(cam_id, "rostro", mensaje)
+                    msg = f"conf={conf:.2f}, coords=({x1},{y1})-({x2},{y2}) [Caffe]"
+                    print(f"[Caffe-Face] Cam {cam_id}: {msg}")
+                    log_event(cam_id, "caffe_rostro", msg)
                     last_print[cam_id] = now
+
+            # Detección facial MediaPipe
+            mp_detections = mp_detector.detect(frame)
+            if mp_detections:
+                for d in mp_detections:
+                    score = d['score']
+                    x1, y1, x2, y2 = d['bbox']
+                    if now - last_print[cam_id] >= PRINT_INTERVAL:
+                        msg = f"conf={score:.2f}, coords=({x1},{y1})-({x2},{y2}) [MediaPipe]"
+                        print(f"[MP-Face] Cam {cam_id}: {msg}")
+                        log_event(cam_id, "mp_rostro", msg)
+                        last_print[cam_id] = now
 
 except KeyboardInterrupt:
     print("\n[INFO] Interrumpido por el usuario")
 
 finally:
     mcam.stop_all()
-    print("[INFO] Todas las cámaras liberadas correctamente")
+    print("[INFO] Cámaras liberadas correctamente")
