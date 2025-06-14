@@ -1,6 +1,7 @@
 import cv2
 import threading
 import time
+import os
 
 class CameraManager:
     def __init__(self, device_id=0, width=640, height=480, fps=30):
@@ -20,10 +21,8 @@ class CameraManager:
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
-
         if not self.cap.isOpened():
             raise RuntimeError(f"No se pudo abrir la cámara {self.device_id}")
-
         self.running = True
         threading.Thread(target=self._capture_loop, daemon=True).start()
 
@@ -47,3 +46,16 @@ class CameraManager:
         self.running = False
         if self.cap is not None:
             self.cap.release()
+
+    @staticmethod
+    def detect_cameras(max_devices=5):
+        """Detecta dispositivos /dev/videoX disponibles y operativos"""
+        available = []
+        for i in range(max_devices):
+            path = f"/dev/video{i}"
+            if os.path.exists(path):
+                cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
+                if cap.isOpened():
+                    available.append(i)
+                    cap.release()
+        return available
