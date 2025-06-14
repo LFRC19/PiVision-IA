@@ -1,0 +1,40 @@
+# Entorno virtual
+venv/
+.env
+
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración del editor
+.vscode/
+
+# Archivos multimedia capturados o temporales
+*.jpg
+*.jpeg
+*.png
+*.avi
+*.mp4
+
+# Archivos de respaldo o edición
+*.bak
+*.swp
+*.tmp
+
+# Modelos grandes (puedes quitar esto si deseas subirlos)
+models/*.caffemodel
+models/*.pb
+models/*.tflite
+
+# Archivos de prueba automatizada
+coverage/
+htmlcov/
+.tox/
+.pytest_cache/
