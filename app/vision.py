@@ -12,6 +12,7 @@ from app.camera_manager       import CameraManager
 from app.frame_processor      import FrameProcessor
 from app.face_mesh_processor  import FaceMeshProcessor
 from app.face_normalizer      import FaceNormalizer
+from app.gesture_handler      import GestureHandler
 
 from face_encoder     import FaceEncoder
 from face_matcher     import FaceMatcher
@@ -65,6 +66,7 @@ if __name__ == "__main__":
     encoder        = FaceEncoder()
     matcher        = FaceMatcher(Database(), threshold=0.6)
     tracker        = CentroidTracker(max_disappeared=30, max_distance=50)
+    gesture_handler = GestureHandler(SESSION_DIR)
 
     mcam.start_all()
     last_move   = {cam_id: 0 for cam_id in device_ids}
@@ -142,6 +144,9 @@ if __name__ == "__main__":
                         )
                         logger.info(f"[Reconocimiento] Cam {cam_id}: {label} (conf {confidence:.2f}) -> {filename}")
                         last_recog[cam_id] = now
+
+                # 3) Detección de gestos
+                gesture_handler.analyze(cam_id, frame)
 
                 # 4) Tracking y conteo
                 objects = tracker.update(rects)
