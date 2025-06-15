@@ -4,36 +4,102 @@
   <meta charset="UTF-8">
   <title>PiVision IA – Cámara en vivo</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background: #f4f4f4;
+    }
+
     #camera-container {
       display: flex;
       flex-wrap: wrap;
       gap: 20px;
     }
+
     .camera-feed {
       flex: 1 1 320px;
       text-align: center;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      padding: 10px;
     }
+
     .camera-feed img {
       width: 100%;
       max-width: 480px;
       border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+
+    .event-box {
+      background: #111;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 0.9em;
+      text-align: left;
+      padding: 10px;
+      height: 120px;
+      overflow-y: auto;
+      border-radius: 5px;
     }
   </style>
 </head>
 <body>
-  <h1>PiVision IA – Stream en vivo</h1>
+  <h1>PiVision IA – Stream en vivo con eventos</h1>
 
   <div id="camera-container">
     {% for cam_id in camera_ids %}
-      <div class="camera-feed">
+      <div class="camera-feed" data-cam-id="{{ cam_id }}">
         <h3>Cámara {{ cam_id }}</h3>
         <img
           src="{{ url_for('dashboard.video_feed', camera_id=cam_id) }}"
           alt="Feed Cámara {{ cam_id }}"
         />
+        <div id="events-{{ cam_id }}" class="event-box">
+          Cargando eventos...
+        </div>
       </div>
     {% endfor %}
   </div>
+
+  <script>
+    document.querySelectorAll(".camera-feed").forEach(container => {
+      const camId = container.dataset.camId;
+      const box = container.querySelector(`#events-${camId}`);
+      const source = new EventSource(`/dashboard/events/${camId}`);
+
+      source.onmessage = function(event) {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.length === 0) {
+            box.innerHTML = "Sin eventos.";
+            return;
+          }
+
+          box.innerHTML = "";
+          data.forEach(evt => {
+            const div = document.createElement("div");
+            let desc = `[${evt.type}]`;
+
+            if (evt.type === "face") {
+              desc += ` Persona: ${evt.label}`;
+            } else if (evt.type === "gesture") {
+              desc += ` Gesto: ${evt.gesture}`;
+            } else if (evt.type === "cross") {
+              desc += ` Dirección: ${evt.dir}`;
+            } else if (evt.type === "motion") {
+              desc += ` Objetos detectados: ${evt.n}`;
+            }
+
+            div.textContent = desc;
+            box.appendChild(div);
+          });
+        } catch (e) {
+          box.innerHTML = "Error al procesar eventos.";
+        }
+      };
+    });
+  </script>
 </body>
 </html>

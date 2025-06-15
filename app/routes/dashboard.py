@@ -3,18 +3,19 @@
 import time
 import cv2
 import psutil
+import json
 from flask import (
     Blueprint, render_template, Response,
     stream_with_context, current_app, jsonify
 )
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 # Blueprint
 # -----------------------------------------------------------------------------
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 # Vistas HTML
 # -----------------------------------------------------------------------------
 
@@ -22,20 +23,19 @@ dashboard_bp = Blueprint('dashboard', __name__)
 def index():
     """Página principal del dashboard (grid de cámaras)"""
     cam_ids = current_app.camera_manager.device_ids
-    return render_template('dashboard.html', camera_ids=cam_ids)
+    return render_template('index.html', camera_ids=cam_ids)
 
-# -----------------------------------------------------------------------------
-# MJPEG Streaming
+# -----------------------------------------------------------------------------  
+# MJPEG Streaming
 # -----------------------------------------------------------------------------
 
 def gen_mjpeg(camera_id: int):
     """Generador MJPEG usando el CameraManager del servidor."""
     cam = current_app.camera_manager.get_camera(camera_id)
 
-    # Garantizamos que el hilo de captura esté activo
     if not getattr(cam, 'running', False):
         cam.start()
-        time.sleep(0.1)  # da tiempo a que llegue el primer frame
+        time.sleep(0.1)
 
     while True:
         frame = cam.read_frame()
@@ -51,10 +51,8 @@ def gen_mjpeg(camera_id: int):
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
 
-        # Regulamos FPS (~30 fps)
         fps = getattr(cam, 'fps', 30)
         time.sleep(1.0 / fps)
-
 
 @dashboard_bp.route('/video_feed/<int:camera_id>')
 def video_feed(camera_id):
@@ -62,8 +60,8 @@ def video_feed(camera_id):
     return Response(stream_with_context(gen_mjpeg(camera_id)),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-# -----------------------------------------------------------------------------
-# Snapshot único (prueba rápida)
+# -----------------------------------------------------------------------------  
+# Snapshot único (prueba rápida)
 # -----------------------------------------------------------------------------
 
 @dashboard_bp.route('/snapshot/<int:camera_id>')
@@ -84,7 +82,7 @@ def snapshot(camera_id):
 
     return Response(jpeg.tobytes(), mimetype='image/jpeg')
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 # Métricas del sistema
 # -----------------------------------------------------------------------------
 
@@ -98,3 +96,30 @@ def metrics():
     }
     return jsonify(data)
 
+# -----------------------------------------------------------------------------  
+# Eventos SSE (detecciones IA en tiempo real)
+# -----------------------------------------------------------------------------
+
+@dashboard_bp.route('/events/<int:camera_id>')
+def stream_events(camera_id):
+    """Stream de eventos IA (rostros, movimiento, gestos, conteo) vía SSE."""
+
+    def event_stream():
+        with current_app.app_context():
+            cam = current_app.camera_manager.get_camera(camera_id)
+
+            if not cam or not getattr(cam, 'running', False):
+                return
+
+            while True:
+                try:
+                    pipeline = cam.get_pipeline()
+                    events = pipeline.get_last_events() if pipeline else []
+                    print(f"[EVENTOS CAM {camera_id}]: {events}")  # DEBUG
+                    yield f"data: {json.dumps(events)}\n\n"
+                except Exception as e:
+                    print(f"[ERROR SSE CAM {camera_id}]: {e}")
+                    yield "data: []\n\n"
+                time.sleep(1)
+
+    return Response(stream_with_context(event_stream()), mimetype='text/event-stream')

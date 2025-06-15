@@ -1,4 +1,4 @@
-# PiVision IA 🎥🤖
+# PiVision IA 🎥🧠
 
 Sistema de detección de rostros basado en inteligencia artificial, diseñado para ejecutarse de forma completamente headless en una Raspberry Pi con **Raspberry Pi OS Lite**. Ideal como nuestro proyecto de residencia profesional, solución de videovigilancia, o base para sistemas de visión artificial embebidos.
 
@@ -23,6 +23,8 @@ Sistema de detección de rostros basado en inteligencia artificial, diseñado pa
 * ✅ Matching con umbral de confianza y detección de rostros desconocidos.
 * ✅ Captura y logging con control de frecuencia (`cooldown`) por rostro.
 * ✅ Organización de sesiones de captura con timestamp automático.
+* ✅ **Servidor Flask con MJPEG streaming web** desde `/video_feed/<cam_id>` o `/snapshot/<cam_id>`.
+* ✅ **Panel web DVR** con grid de cámaras funcionando desde navegador.
 
 ---
 
@@ -31,6 +33,7 @@ Sistema de detección de rostros basado en inteligencia artificial, diseñado pa
 ```plaintext
 PiVision-IA/
 ├── app/
+│   ├── __init__.py
 │   ├── camera_manager.py
 │   ├── multi_camera_manager.py
 │   ├── frame_processor.py
@@ -38,7 +41,11 @@ PiVision-IA/
 │   ├── face_mesh_processor.py
 │   ├── face_normalizer.py
 │   ├── face_signature.py
+│   ├── routes/
+│   │   └── dashboard.py         # Streaming MJPEG + snapshot + métricas
 │   └── vision.py                # Script principal headless con IA integrada
+├── config/
+│   └── settings.py              # Configuración de cámara y paths
 ├── database/
 │   └── pivision.db              # Base de datos SQLite (excluida por .gitignore)
 ├── models/
@@ -50,6 +57,7 @@ PiVision-IA/
 ├── rostros/
 ├── static/
 ├── templates/
+│   └── index.html               # Grid visual en el navegador
 ├── tests/
 ├── register_face.py            # Script CLI para registrar nuevos rostros conocidos
 ├── init_db.py                  # Inicializa base de datos pivision.db
@@ -70,7 +78,7 @@ Instaladas vía `apt` y `pip` en un entorno `venv` con `--system-site-packages`:
 
 ```bash
 sudo apt install python3-opencv
-pip install tflite-runtime mediapipe numpy opencv-python-headless
+pip install tflite-runtime mediapipe numpy opencv-python-headless flask psutil
 ```
 
 Dependencias clave:
@@ -78,6 +86,8 @@ Dependencias clave:
 - `tflite-runtime`: ejecución del modelo MobileFaceNet sin instalar TensorFlow completo.
 - `mediapipe`: detección facial + landmarks.
 - `opencv-python-headless`: procesamiento de video y rostros.
+- `flask`: servidor web para streaming.
+- `psutil`: métricas del sistema (CPU, RAM, disco).
 - `numpy`: manipulación de vectores y distancias.
 
 ---
@@ -105,16 +115,20 @@ Desde junio 2025, el sistema cuenta con reconocimiento facial completo basado en
 * Logging de todos los eventos relevantes.
 * Exportación controlada de rostros detectados.
 * Registro por consola de identificaciones recientes.
+* ✅ Stream MJPEG desde navegador (`/video_feed/0`) vía Flask.
+* ✅ Snapshot en `/snapshot/0` para debug o monitoreo puntual.
+* ✅ Página web (`/`) con grid visual del stream.
 
 ---
 
 ## 🚀 Próximas metas
 
-1. 🌐 **Servidor Flask**: Streaming MJPEG y API REST para métricas.
-2. 🧪 **Pruebas unitarias** con `pytest`.
-3. 🔄 **Servicios `systemd`** para arranque automático.
-4. 📝 **Documentación** técnica y manual de usuario.
-5. ☁️ **Repositorio GitHub** como respaldo de prácticas profesionales.
+1. 🧠 **Integración de lógica IA en el streaming** (detección, overlays, eventos SSE).
+2. 🌐 **API REST** con JSON de eventos.
+3. 🧪 **Pruebas unitarias** con `pytest`.
+4. 🔄 **Servicios `systemd`** para arranque automático.
+5. 📝 **Documentación** técnica y manual de usuario.
+6. ☁️ **Repositorio GitHub** como respaldo de prácticas profesionales.
 
 ---
 

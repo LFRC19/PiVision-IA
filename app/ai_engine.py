@@ -32,6 +32,9 @@ class AIPipeline:
         self.last_face  = 0.0
         self.cooldown   = 5.0
 
+        # Almacenamiento de eventos recientes
+        self.last_events = []
+
     def process(self, frame):
         """
         Devuelve:
@@ -42,7 +45,7 @@ class AIPipeline:
         now = time.time()
         h, w = frame.shape[:2]
 
-        # 1- Det. movimiento
+        # 1- Detección de movimiento
         thresh, contours = self.motion_proc.detect_motion(frame)
         if contours:
             events.append({"type": "motion", "n": len(contours)})
@@ -55,7 +58,6 @@ class AIPipeline:
             x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
             rects.append((x0, y0, x1 - x0, y1 - y0))
 
-            # reconocimiento cooldown
             if now - self.last_face >= self.cooldown:
                 face = self.normalizer.normalize(frame, lm)
                 if face is not None:
@@ -67,7 +69,7 @@ class AIPipeline:
 
         # 3- Gestos
         g_evt = self.gesture_handler.analyze(self.cam_id, frame)
-        if g_evt:  # por ejemplo 'hands_up'
+        if g_evt:
             events.append({"type": "gesture", "gesture": g_evt})
 
         # 4- Tracking y conteo
@@ -85,13 +87,17 @@ class AIPipeline:
                 self.count_up.add(oid)
                 events.append({"type": "cross", "dir": "up"})
 
-            # dibuja ID
             cv2.putText(frame, f"{oid}", (cx, cy),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
             cv2.rectangle(frame, (cx-5, cy-5), (cx+5, cy+5), (0,255,0), 1)
 
-        # dibuja rectángulos rostro
         for (x, y, w0, h0) in rects:
             cv2.rectangle(frame, (x, y), (x+w0, y+h0), (0,255,255), 1)
 
+        # Guardar eventos recientes
+        self.last_events = events
+
         return frame, events
+
+    def get_last_events(self):
+        return self.last_events
