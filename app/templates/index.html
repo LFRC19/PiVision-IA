@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PiVision IA – Cámara en vivo</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #camera-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .camera-feed {
+      flex: 1 1 320px;
+      text-align: center;
+    }
+    .camera-feed img {
+      width: 100%;
+      max-width: 480px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>PiVision IA – Stream en vivo</h1>
+
+  <div id="camera-container">
+    {% for cam_id in camera_ids %}
+      <div class="camera-feed">
+        <h3>Cámara {{ cam_id }}</h3>
+        <img
+          src="{{ url_for('dashboard.video_feed', camera_id=cam_id) }}"
+          alt="Feed Cámara {{ cam_id }}"
+        />
+      </div>
+    {% endfor %}
+  </div>
+</body>
+</html>
