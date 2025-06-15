@@ -1,28 +1,26 @@
-import cv2
-import threading
-import time
-import os
+# app/camera_manager.py (versión simplificada)
+
+import cv2, threading, time
 
 class CameraManager:
-    def __init__(self, device_id=0, width=640, height=480, fps=30):
+    def __init__(self, device_id, width=640, height=480, fps=30):
         self.device_id = device_id
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.cap = None
-        self.running = False
+        self.width, self.height, self.fps = width, height, fps
+        self.cap = None          # todavía NO abrimos la cámara
         self.frame = None
-        self.buffer = []
-        self.buffer_size = 100
+        self.running = False
         self.lock = threading.Lock()
 
     def start(self):
-        self.cap = cv2.VideoCapture(self.device_id, cv2.CAP_V4L2)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+        # Si ya está corriendo no hacemos nada
+        if self.running:
+            return
+
+        # Abrimos la cámara aquí
+        self.cap = cv2.VideoCapture(self.device_id)
         if not self.cap.isOpened():
             raise RuntimeError(f"No se pudo abrir la cámara {self.device_id}")
+
         self.running = True
         threading.Thread(target=self._capture_loop, daemon=True).start()
 
@@ -30,32 +28,29 @@ class CameraManager:
         while self.running:
             ret, frame = self.cap.read()
             if not ret:
+                # pequeño respiro antes de volver a intentar
+                time.sleep(0.01)
                 continue
+            frame = cv2.resize(frame, (self.width, self.height))
             with self.lock:
                 self.frame = frame
-                self.buffer.append(frame)
-                if len(self.buffer) > self.buffer_size:
-                    self.buffer.pop(0)
-            time.sleep(1 / self.fps)
 
     def read_frame(self):
         with self.lock:
-            return self.frame.copy() if self.frame is not None else None
+            return None if self.frame is None else self.frame.copy()
 
     def stop(self):
         self.running = False
         if self.cap is not None:
             self.cap.release()
+            self.cap = None
 
-    @staticmethod
-    def detect_cameras(max_devices=5):
-        """Detecta dispositivos /dev/videoX disponibles y operativos"""
-        available = []
-        for i in range(max_devices):
-            path = f"/dev/video{i}"
-            if os.path.exists(path):
-                cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
-                if cap.isOpened():
-                    available.append(i)
-                    cap.release()
-        return available
+    @classmethod
+    def detect_cameras(cls, max_test=5):
+        ids = []
+        for i in range(max_test):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                ids.append(i)
+                cap.release()
+        return ids
