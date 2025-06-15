@@ -39,3 +39,11 @@ htmlcov/
 .tox/
 .pytest_cache/
 log/*.log
+
+
+# Ignorar base de datos local
+database/pivision.db
+__pycache__/
+*.pyc
+.env
+venv/
