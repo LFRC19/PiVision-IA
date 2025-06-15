@@ -1,9 +1,21 @@
 import cv2
 import numpy as np
+import json
+
+from face_encoder import FaceEncoder
+from face_matcher import FaceMatcher
+from db import Database
 
 class FrameProcessor:
-    def __init__(self):
+    def __init__(self, threshold: float = 0.6):
+        # Para detección de movimiento
         self.previous_frame = None
+
+        # Inicialización de DB, encoder y matcher
+        db = Database()
+        self.encoder = FaceEncoder()
+        self.matcher = FaceMatcher(db, threshold=threshold)
+        self.db = db
 
     def preprocess(self, frame, blur_type="gaussian", kernel_size=(5, 5)):
         """
@@ -27,12 +39,62 @@ class FrameProcessor:
 
         if self.previous_frame is None:
             self.previous_frame = gray
-            return None, None
+            return None, []
 
         diff = cv2.absdiff(self.previous_frame, gray)
         _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
         self.previous_frame = gray
 
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
         return thresh, contours
+
+    def process(self, frame):
+        """
+        1) Detecta movimiento.
+        2) Para cada región detectada, recorta, codifica, compara y loggea.
+        3) Anota en el frame el nombre o 'Desconocido'.
+        Devuelve el frame anotado, el threshold y los contornos para visualización.
+        """
+        thresh, contours = self.detect_motion(frame)
+
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+            # Evitar regiones muy pequeñas
+            if w < 50 or h < 50:
+                continue
+
+            # 2.1) Recortar cara (o región de interés)
+            face_img = frame[y:y+h, x:x+w]
+
+            # 2.2) Encoding facial
+            embedding = self.encoder.encode(face_img)
+
+            # 2.3) Matching con la base de datos
+            match = self.matcher.match(embedding)
+            if match:
+                event_type = 'face_detected'
+                person_id  = match['id']
+                label      = match['name']
+                confidence = match['distance']
+            else:
+                event_type = 'unknown_person'
+                person_id  = None
+                label      = 'Desconocido'
+                confidence = 0.0
+
+            # 2.4) Log en la tabla detection_events
+            self.db.log_event(
+                camera_id    = 1,  # ← reemplaza con tu ID de cámara real
+                event_type   = event_type,
+                person_id    = person_id,
+                confidence   = confidence,
+                bounding_box = json.dumps({'x': x, 'y': y, 'w': w, 'h': h}),
+                image_path   = ''  # ← opcional: guarda la ruta de un recorte o captura
+            )
+
+            # 2.5) Anotar el frame con el nombre
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.putText(frame, label, (x, y-10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+        return frame, thresh, contours

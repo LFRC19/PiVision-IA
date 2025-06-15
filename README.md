@@ -1,6 +1,6 @@
 # PiVision IA 🎥🤖
 
-Sistema de detección de rostros basado en inteligencia artificial, diseñado para ejecutarse de forma completamente headless en una Raspberry Pi con **Raspberry Pi OS Lite**. Ideal como proyecto de residencia profesional, solución de videovigilancia, o base para sistemas de visión artificial embebidos.
+Sistema de detección de rostros basado en inteligencia artificial, diseñado para ejecutarse de forma completamente headless en una Raspberry Pi con **Raspberry Pi OS Lite**. Ideal como nuestro proyecto de residencia profesional, solución de videovigilancia, o base para sistemas de visión artificial embebidos.
 
 ---
 
@@ -14,10 +14,15 @@ Sistema de detección de rostros basado en inteligencia artificial, diseñado pa
 * ✅ Detección de movimiento mediante diferencia de frames (`cv2.absdiff`).
 * ✅ Preprocesamiento con desenfoque y escala de grises (`cv2.GaussianBlur`, `cv2.cvtColor`).
 * ✅ Logging estructurado en archivo (`log/eventos.log`) y salida moderada por consola.
-* ✅ Pipeline de detección facial con **MediaPipe face\_detection** paralelo al modelo Caffe.
+* ✅ Pipeline de detección facial con **MediaPipe face_detection** paralelo al modelo Caffe.
 * ✅ Extracción de landmarks faciales en tiempo real con **MediaPipe Face Mesh**.
 * ✅ Normalización de rostros (alineación, recorte, resize).
 * ✅ Control de duplicados: guarda rostro solo si es distinto (firma facial por landmarks).
+* ✅ Reconocimiento facial en tiempo real con **MobileFaceNet (TFLite)**.
+* ✅ Registro de rostros conocidos en base de datos vía script.
+* ✅ Matching con umbral de confianza y detección de rostros desconocidos.
+* ✅ Captura y logging con control de frecuencia (`cooldown`) por rostro.
+* ✅ Organización de sesiones de captura con timestamp automático.
 
 ---
 
@@ -26,27 +31,35 @@ Sistema de detección de rostros basado en inteligencia artificial, diseñado pa
 ```plaintext
 PiVision-IA/
 ├── app/
-│   ├── camera_manager.py        # Clase CameraManager con detección, buffer y control de parámetros
-│   ├── multi_camera_manager.py  # Clase MultiCameraManager para gestionar múltiples cámaras simultáneas
-│   ├── frame_processor.py       # Procesamiento básico: movimiento, filtros, escala de grises
-│   ├── face_detector.py         # MediaPipe face_detection: detección facial en tiempo real
-│   ├── face_mesh_processor.py   # MediaPipe face_mesh: extracción de landmarks
-│   ├── face_normalizer.py       # Alineación y recorte de rostro a partir de landmarks
-│   ├── face_signature.py        # Firma facial basada en landmarks clave para evitar duplicados
-│   └── vision.py                # Script principal de detección headless con integración completa
+│   ├── camera_manager.py
+│   ├── multi_camera_manager.py
+│   ├── frame_processor.py
+│   ├── face_detector.py
+│   ├── face_mesh_processor.py
+│   ├── face_normalizer.py
+│   ├── face_signature.py
+│   └── vision.py                # Script principal headless con IA integrada
+├── database/
+│   └── pivision.db              # Base de datos SQLite (excluida por .gitignore)
 ├── models/
-│   ├── deploy.prototxt          # Configuración de red neuronal (Caffe)
-│   └── res10_300x300_ssd_iter_140000_fp16.caffemodel
-├── static/                      # Recursos web (Flask)
-├── templates/                   # Vistas HTML (Flask)
-├── tests/                       # Pruebas unitarias (en desarrollo)
-├── reset_cam.sh                 # Script para liberar /dev/video0
-├── log/                         # Carpeta para registros de eventos
-│   └── eventos.log              # Archivo dinámico de logs (excluido por .gitignore)
-├── rostros/                     # Carpeta de salida para rostros normalizados
-├── requirements.txt             # Dependencias del proyecto
-├── .gitignore                   # Archivos excluidos del repo
-└── README.md                    # Documentación del proyecto
+│   ├── deploy.prototxt
+│   ├── res10_300x300_ssd_iter_140000_fp16.caffemodel
+│   └── mobilefacenet.tflite     # Modelo TFLite para reconocimiento facial
+├── log/
+│   └── eventos.log
+├── rostros/
+├── static/
+├── templates/
+├── tests/
+├── register_face.py            # Script CLI para registrar nuevos rostros conocidos
+├── init_db.py                  # Inicializa base de datos pivision.db
+├── db.py                       # Acceso a base de datos
+├── face_encoder.py             # Codificación facial con TFLite
+├── face_matcher.py             # Comparación de rostros con base
+├── reset_cam.sh
+├── requirements.txt
+├── .gitignore
+└── README.md
 ```
 
 ---
@@ -57,25 +70,41 @@ Instaladas vía `apt` y `pip` en un entorno `venv` con `--system-site-packages`:
 
 ```bash
 sudo apt install python3-opencv
-pip install flask django mysql-connector-python mediapipe numpy matplotlib pandas
+pip install tflite-runtime mediapipe numpy opencv-python-headless
 ```
 
-MediaPipe y NumPy son utilizadas para procesamiento facial, landmarks y comparación de firmas.
+Dependencias clave:
+
+- `tflite-runtime`: ejecución del modelo MobileFaceNet sin instalar TensorFlow completo.
+- `mediapipe`: detección facial + landmarks.
+- `opencv-python-headless`: procesamiento de video y rostros.
+- `numpy`: manipulación de vectores y distancias.
+
+---
+
+## 🧠 Sistema de Reconocimiento Facial (Fase 4.1)
+
+Desde junio 2025, el sistema cuenta con reconocimiento facial completo basado en aprendizaje profundo y sin GUI. Incluye:
+
+- ✅ Modelo MobileFaceNet (`mobilefacenet.tflite`) para generación de vectores faciales.
+- ✅ Codificador `face_encoder.py` con normalización y salida de embeddings.
+- ✅ Comparador `face_matcher.py` con umbral de distancia euclidiana.
+- ✅ Script de registro de rostros (`register_face.py`) desde consola.
+- ✅ Identificación en tiempo real desde consola (modo headless).
+- ✅ Base de datos SQLite (`pivision.db`) con tablas `users`, `known_faces`, `detection_events`.
+- ✅ Logging en `eventos.log` y en base de datos por cada detección.
+- ✅ Guardado organizado en `rostros/` por sesión.
+- ✅ Control de frecuencia (`cooldown`) para evitar spam y duplicados.
 
 ---
 
 ## 🧪 Estado funcional actual
 
-* **Detección de rostros**: `vision.py` ejecutable como módulo (`python3 -m app.vision`).
-* **Parámetros de cámara**: Ajustables con flags.
-* **Buffer circular**: Guarda hasta 100 frames.
-* **Multi-cámara**: Gestiona varias cámaras simultáneamente con `MultiCameraManager`.
-* **Detección de movimiento**: basada en diferencia de frames y contornos.
-* **Preprocesamiento**: escala de grises + filtros de ruido.
-* **Logging**: todos los eventos registrados con timestamp en archivo y moderados por consola.
-* **MediaPipe**: detección facial y landmarks con `face_detection` y `face_mesh`.
-* **Normalización**: recorte y alineación de rostros detectados.
-* **Deduplicación**: solo se guardan rostros distintos según firma facial generada.
+* `vision.py` ejecutable como módulo: `python3 -m app.vision --nogui`.
+* Soporte multi-cámara, detección de movimiento y reconocimiento facial.
+* Logging de todos los eventos relevantes.
+* Exportación controlada de rostros detectados.
+* Registro por consola de identificaciones recientes.
 
 ---
 
@@ -97,5 +126,5 @@ MIT License — libre para uso, modificación y distribución.
 
 ## ✍️ Autores
 
-**Luis Fernando Rodriguez Cruz & Nayeli Ortiz Garcia**
+**Luis Fernando Rodriguez Cruz & Nayeli Ortiz Garcia**  
 Desarrollado en una Raspberry Pi sin entorno gráfico, accediendo vía SSH desde Visual Studio Code.
