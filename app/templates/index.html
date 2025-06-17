@@ -2,104 +2,329 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>PiVision IA – Cámara en vivo</title>
+  <title>PiVision IA – Dashboard</title>
   <style>
-    body {
-      font-family: sans-serif;
-      margin: 20px;
-      background: #f4f4f4;
+    :root {
+      --bg-dark: #111;
+      --bg-panel: #1a1a1a;
+      --bg-metrics: #222;
+      --border: #333;
+      --text: #eee;
+      --accent-motion: #ff9800;
+      --accent-face:   #ab47bc;
+      --accent-gesture:#42a5f5;
+      --accent-people: #26c6da;
+      --radius: 8px;
+      --pad: 12px;
     }
-
-    #camera-container {
+    * { box-sizing: border-box; margin:0; padding:0 }
+    body {
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: system-ui, Roboto, Segoe UI, sans-serif;
+      padding: 20px;
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
+      align-items: center;
       gap: 20px;
     }
+    h1 { text-align: center }
 
-    .camera-feed {
-      flex: 1 1 320px;
-      text-align: center;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      padding: 10px;
+    /* STREAM MJPEG */
+    #video {
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 100%;
     }
 
-    .camera-feed img {
+    /* MÉTRICAS */
+    .metrics {
+      background: var(--bg-metrics);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       width: 100%;
-      max-width: 480px;
-      border: 1px solid #ccc;
-      margin-bottom: 10px;
+      max-width: 880px;
+      padding: var(--pad);
+    }
+    .metrics-grid {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .metric-card {
+      flex: 1 0 30%;
+      min-width: 140px;
+      background: #0004;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      text-align: center;
+    }
+    .metric-card h3 { font-size: 0.9rem; margin-bottom: 4px }
+    .metric-card span { font-size: 1.3rem; font-weight: 700 }
+
+    /* PREVISUALIZACIÓN DE EVENTOS */
+    .preview {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 880px;
+      padding: var(--pad);
+    }
+    .preview h2 { margin-bottom: 12px }
+    .cards {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .card {
+      flex: 1 0 22%;
+      min-width: 160px;
+      background: #0004;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: center;
+    }
+    .card .dot {
+      width: 16px; height:16px;
+      border-radius:50%;
+      margin: 0 auto;
+    }
+    .dot.motion    { background: var(--accent-motion); }
+    .dot.face      { background: var(--accent-face); }
+    .dot.gesture   { background: var(--accent-gesture); }
+    .dot.people_count { background: var(--accent-people); }
+
+    .card .type { font-weight:700; text-transform:uppercase; }
+    .card .time { font-family: monospace; color: var(--text); font-size:0.9rem; }
+    .card .msg  { font-size:0.95rem; }
+
+    /* LEYENDA */
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-item .dot {
+      width: 12px; height:12px; border-radius:50%;
     }
 
-    .event-box {
-      background: #111;
-      color: #0f0;
-      font-family: monospace;
-      font-size: 0.9em;
-      text-align: left;
-      padding: 10px;
-      height: 120px;
-      overflow-y: auto;
-      border-radius: 5px;
+    /* HISTORIAL */
+    .events {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 880px;
+      padding: var(--pad);
+    }
+    #toggle-history {
+      background: none;
+      border: none;
+      color: var(--accent-motion);
+      cursor: pointer;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+    .history.hidden { display: none }
+    .history .event-item {
+      border-top: 1px solid var(--border);
+      padding: 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+    }
+    .history .event-item:first-child { border: none }
+    .history .event-item .dot {
+      width: 12px; height:12px; border-radius:50%;
     }
   </style>
 </head>
 <body>
-  <h1>PiVision IA – Stream en vivo con eventos</h1>
 
-  <div id="camera-container">
-    {% for cam_id in camera_ids %}
-      <div class="camera-feed" data-cam-id="{{ cam_id }}">
-        <h3>Cámara {{ cam_id }}</h3>
-        <img
-          src="{{ url_for('dashboard.video_feed', camera_id=cam_id) }}"
-          alt="Feed Cámara {{ cam_id }}"
-        />
-        <div id="events-{{ cam_id }}" class="event-box">
-          Cargando eventos...
-        </div>
+  <h1>PiVision IA – Dashboard</h1>
+
+  <!-- Stream MJPEG -->
+  <img id="video" src="/dashboard/video_feed/0" alt="Feed cámara 0">
+
+  <!-- Métricas -->
+  <section class="metrics">
+    <h2>Métricas del Sistema</h2>
+    <div class="metrics-grid">
+      <div class="metric-card"><h3>CPU</h3><span id="cpu">…%</span></div>
+      <div class="metric-card"><h3>RAM</h3><span id="memory">…%</span></div>
+      <div class="metric-card"><h3>Disco</h3><span id="disk">…%</span></div>
+    </div>
+  </section>
+
+  <!-- Previsualización Últimos Eventos por Tipo -->
+  <section class="preview">
+    <h2>Último Evento de Cada Tipo</h2>
+    <div class="cards">
+      <div class="card" id="card-motion">
+        <div class="dot motion"></div>
+        <div class="type">Movimiento</div>
+        <div class="time">--:--:--</div>
+        <div class="msg">Esperando...</div>
       </div>
-    {% endfor %}
-  </div>
+      <div class="card" id="card-face">
+        <div class="dot face"></div>
+        <div class="type">Rostro</div>
+        <div class="time">--:--:--</div>
+        <div class="msg">Esperando...</div>
+      </div>
+      <div class="card" id="card-gesture">
+        <div class="dot gesture"></div>
+        <div class="type">Gesto</div>
+        <div class="time">--:--:--</div>
+        <div class="msg">Esperando...</div>
+      </div>
+      <div class="card" id="card-people_count">
+        <div class="dot people_count"></div>
+        <div class="type">Personas</div>
+        <div class="time">--:--:--</div>
+        <div class="msg">Esperando...</div>
+      </div>
+    </div>
+    <!-- Leyenda de colores -->
+    <div class="legend">
+      <div class="legend-item"><div class="dot motion"></div>Movimiento</div>
+      <div class="legend-item"><div class="dot face"></div>Rostro</div>
+      <div class="legend-item"><div class="dot gesture"></div>Gesto</div>
+      <div class="legend-item"><div class="dot people_count"></div>Personas</div>
+    </div>
+  </section>
+
+  <!-- Historial Completo -->
+  <section class="events">
+    <button id="toggle-history">Ver historial completo</button>
+    <div id="history" class="history hidden"></div>
+  </section>
 
   <script>
-    document.querySelectorAll(".camera-feed").forEach(container => {
-      const camId = container.dataset.camId;
-      const box = container.querySelector(`#events-${camId}`);
-      const source = new EventSource(`/dashboard/events/${camId}`);
+    const MAX_HISTORY = 200;
+    let historyBuffer = [];
 
-      source.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.length === 0) {
-            box.innerHTML = "Sin eventos.";
-            return;
-          }
+    // Para almacenar el último evento de cada tipo
+    const lastByType = {
+      motion: null,
+      face: null,
+      gesture: null,
+      people_count: null
+    };
 
-          box.innerHTML = "";
-          data.forEach(evt => {
-            const div = document.createElement("div");
-            let desc = `[${evt.type}]`;
+    const src = new EventSource('/dashboard/events/0');
+    const cpu = document.getElementById('cpu');
+    const mem = document.getElementById('memory');
+    const dsk = document.getElementById('disk');
 
-            if (evt.type === "face") {
-              desc += ` Persona: ${evt.label}`;
-            } else if (evt.type === "gesture") {
-              desc += ` Gesto: ${evt.gesture}`;
-            } else if (evt.type === "cross") {
-              desc += ` Dirección: ${evt.dir}`;
-            } else if (evt.type === "motion") {
-              desc += ` Objetos detectados: ${evt.n}`;
-            }
+    const toggleBtn = document.getElementById('toggle-history');
+    const historyEl = document.getElementById('history');
 
-            div.textContent = desc;
-            box.appendChild(div);
-          });
-        } catch (e) {
-          box.innerHTML = "Error al procesar eventos.";
-        }
+    const types = ['motion','face','gesture','people_count'];
+
+    // References a las cards
+    const cards = {};
+    types.forEach(t => {
+      cards[t] = {
+        timeEl:   document.querySelector(`#card-${t} .time`),
+        msgEl:    document.querySelector(`#card-${t} .msg`)
       };
     });
+
+    // Formatea la hora HH:MM:SS
+    const pad = n => n.toString().padStart(2, '0');
+    const fmtTime = ts => {
+      const d = new Date(ts);
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+
+    // Actualiza la card de un tipo
+    function updateCard(type, evt, ts) {
+      const { timeEl, msgEl } = cards[type];
+      timeEl.textContent = fmtTime(ts);
+      switch(type) {
+        case 'motion':
+          msgEl.textContent = `Contornos: ${evt.n}`;
+          break;
+        case 'face':
+          msgEl.textContent = `Label: ${evt.label || 'Desconocido'}`;
+          break;
+        case 'gesture':
+          msgEl.textContent = `Gesto: ${evt.gesture || '—'}`;
+          break;
+        case 'people_count':
+          msgEl.textContent = `Total: ${evt.count}`;
+          break;
+      }
+    }
+
+    // Renderiza historial
+    function renderHistory() {
+      historyEl.innerHTML = '';
+      historyBuffer.slice(0, MAX_HISTORY).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'event-item';
+        const dot = document.createElement('div');
+        dot.className = 'dot ' + item.type;
+        const text = document.createElement('div');
+        text.textContent = `[${fmtTime(item.ts)}] ${item.type.toUpperCase()}: ` +
+          ({
+            motion: `${item.n} contornos`,
+            face:   `Rostro=${item.label||'Desconocido'}`,
+            gesture:`Gesto=${item.gesture||'—'}`,
+            people_count:`Personas=${item.count}`
+          }[item.type]);
+        div.append(dot, text);
+        historyEl.appendChild(div);
+      });
+    }
+
+    // Toggle historial
+    toggleBtn.addEventListener('click', () => {
+      historyEl.classList.toggle('hidden');
+      toggleBtn.textContent = historyEl.classList.contains('hidden')
+        ? 'Ver historial completo'
+        : 'Ocultar historial';
+      if (!historyEl.classList.contains('hidden')) renderHistory();
+    });
+
+    // Recibe SSE
+    src.onmessage = ({ data }) => {
+      let arr;
+      try { arr = JSON.parse(data) } catch { return; }
+      if (!Array.isArray(arr)) return;
+
+      const now = Date.now();
+      arr.forEach(evt => {
+        if (evt.type === 'metrics') {
+          cpu.textContent = `${evt.cpu}%`;
+          mem.textContent = `${evt.memory}%`;
+          dsk.textContent = `${evt.disk}%`;
+        } else if (types.includes(evt.type)) {
+          // guardamos en historial
+          historyBuffer.unshift({ ...evt, ts: now });
+          // actualizamos último por tipo
+          lastByType[evt.type] = { evt, ts: now };
+          updateCard(evt.type, evt, now);
+        }
+      });
+    };
   </script>
 </body>
 </html>
