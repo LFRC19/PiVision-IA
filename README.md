@@ -1,6 +1,7 @@
+
 # PiVision IA 🎥🧠
 
-Sistema de detección de rostros basado en inteligencia artificial, diseñado para ejecutarse de forma completamente headless en una Raspberry Pi con **Raspberry Pi OS Lite**. Ideal como nuestro proyecto de residencia profesional, solución de videovigilancia, o base para sistemas de visión artificial embebidos.
+Sistema de detección de rostros basado en inteligencia artificial, diseñado para ejecutarse de forma completamente headless en una Raspberry Pi con Raspberry Pi OS Lite. Ideal como nuestro proyecto de residencia profesional, solución de videovigilancia, o base para sistemas de visión artificial embebidos.
 
 ---
 
@@ -14,23 +15,22 @@ Sistema de detección de rostros basado en inteligencia artificial, diseñado pa
 * ✅ Detección de movimiento mediante diferencia de frames (`cv2.absdiff`).
 * ✅ Preprocesamiento con desenfoque y escala de grises (`cv2.GaussianBlur`, `cv2.cvtColor`).
 * ✅ Logging estructurado en archivo (`log/eventos.log`) y salida moderada por consola.
-* ✅ Pipeline de detección facial con **MediaPipe face_detection** paralelo al modelo Caffe.
-* ✅ Extracción de landmarks faciales en tiempo real con **MediaPipe Face Mesh**.
+* ✅ Pipeline de detección facial con MediaPipe face_detection paralelo al modelo Caffe.
+* ✅ Extracción de landmarks faciales en tiempo real con MediaPipe Face Mesh.
 * ✅ Normalización de rostros (alineación, recorte, resize).
 * ✅ Control de duplicados: guarda rostro solo si es distinto (firma facial por landmarks).
-* ✅ Reconocimiento facial en tiempo real con **MobileFaceNet (TFLite)**.
+* ✅ Reconocimiento facial en tiempo real con MobileFaceNet (TFLite).
 * ✅ Registro de rostros conocidos en base de datos vía script.
 * ✅ Matching con umbral de confianza y detección de rostros desconocidos.
 * ✅ Captura y logging con control de frecuencia (`cooldown`) por rostro.
 * ✅ Organización de sesiones de captura con timestamp automático.
-* ✅ **Servidor Flask con MJPEG streaming web** desde `/video_feed/<cam_id>` o `/snapshot/<cam_id>`.
-* ✅ **Panel web DVR** con grid de cámaras funcionando desde navegador.
+* ✅ Servidor Flask con MJPEG streaming web desde `/video_feed/<cam_id>` o `/snapshot/<cam_id>`.
+* ✅ Panel web DVR con grid de cámaras funcionando desde navegador.
 
 ---
 
 ## 🧠 Arquitectura del Proyecto
 
-```plaintext
 PiVision-IA/
 ├── app/
 │   ├── __init__.py
@@ -68,7 +68,6 @@ PiVision-IA/
 ├── requirements.txt
 ├── .gitignore
 └── README.md
-```
 
 ---
 
@@ -76,19 +75,17 @@ PiVision-IA/
 
 Instaladas vía `apt` y `pip` en un entorno `venv` con `--system-site-packages`:
 
-```bash
 sudo apt install python3-opencv
 pip install tflite-runtime mediapipe numpy opencv-python-headless flask psutil
-```
 
 Dependencias clave:
 
-- `tflite-runtime`: ejecución del modelo MobileFaceNet sin instalar TensorFlow completo.
-- `mediapipe`: detección facial + landmarks.
-- `opencv-python-headless`: procesamiento de video y rostros.
-- `flask`: servidor web para streaming.
-- `psutil`: métricas del sistema (CPU, RAM, disco).
-- `numpy`: manipulación de vectores y distancias.
+- tflite-runtime: ejecución del modelo MobileFaceNet sin instalar TensorFlow completo.
+- mediapipe: detección facial + landmarks.
+- opencv-python-headless: procesamiento de video y rostros.
+- flask: servidor web para streaming.
+- psutil: métricas del sistema (CPU, RAM, disco).
+- numpy: manipulación de vectores y distancias.
 
 ---
 
@@ -110,25 +107,51 @@ Desde junio 2025, el sistema cuenta con reconocimiento facial completo basado en
 
 ## 🧪 Estado funcional actual
 
-* `vision.py` ejecutable como módulo: `python3 -m app.vision --nogui`.
-* Soporte multi-cámara, detección de movimiento y reconocimiento facial.
-* Logging de todos los eventos relevantes.
-* Exportación controlada de rostros detectados.
-* Registro por consola de identificaciones recientes.
-* ✅ Stream MJPEG desde navegador (`/video_feed/0`) vía Flask.
-* ✅ Snapshot en `/snapshot/0` para debug o monitoreo puntual.
-* ✅ Página web (`/`) con grid visual del stream.
+- vision.py ejecutable como módulo: `python3 -m app.vision --nogui`.
+- Soporte multi-cámara, detección de movimiento y reconocimiento facial.
+- Logging de todos los eventos relevantes.
+- Exportación controlada de rostros detectados.
+- Registro por consola de identificaciones recientes.
+- ✅ Stream MJPEG desde navegador (`/video_feed/0`) vía Flask.
+- ✅ Snapshot en `/snapshot/0` para debug o monitoreo puntual.
+- ✅ Página web (`/`) con grid visual del stream.
+
+---
+
+## 🔐 Gestión de Usuarios (Fase 5.3)
+
+- ✅ Inicio de sesión seguro con usuario/contraseña.
+- ✅ Sesión persistente con `Flask.session`.
+- ✅ Protección de rutas con `@login_required`.
+- ✅ Nombre del usuario activo mostrado en la interfaz.
+- ✅ Botón visual para cerrar sesión.
+- ✅ Cámaras continúan operativas incluso tras logout.
+- 🔜 Roles `admin/viewer` preparados, no activados por ahora.
+
+---
+
+## ✅ Versión estable (junio 2025)
+
+Desde esta versión:
+
+- ✅ Se integra seguimiento de múltiples rostros con `cv2.MultiTracker` y `TrackerCSRT` (vía `opencv-contrib-python`).
+- ✅ Se genera el evento `people_count` reflejando el total de personas frente a la cámara.
+- ✅ Cada rostro identificado recibe un ID único que se muestra sobre el frame.
+- ✅ Se conserva compatibilidad total con el panel DVR web, el flujo MJPEG y SSE.
+- ✅ Se corrige la compatibilidad con `numpy==1.26.1`, `tflite-runtime` y MediaPipe para asegurar estabilidad.
+
+Esta es la base funcional que será usada para futuras expansiones de la API REST y visualizaciones avanzadas.
 
 ---
 
 ## 🚀 Próximas metas
 
-1. 🧠 **Integración de lógica IA en el streaming** (detección, overlays, eventos SSE).
-2. 🌐 **API REST** con JSON de eventos.
-3. 🧪 **Pruebas unitarias** con `pytest`.
-4. 🔄 **Servicios `systemd`** para arranque automático.
-5. 📝 **Documentación** técnica y manual de usuario.
-6. ☁️ **Repositorio GitHub** como respaldo de prácticas profesionales.
+1. 🧠 Integración de lógica IA en el streaming (detección, overlays, eventos SSE).
+2. 🌐 API REST con JSON de eventos.
+3. 🧪 Pruebas unitarias con `pytest`.
+4. 🔄 Servicios `systemd` para arranque automático.
+5. 📝 Documentación técnica y manual de usuario.
+6. ☁️ Repositorio GitHub como respaldo de prácticas profesionales.
 
 ---
 
@@ -140,5 +163,5 @@ MIT License — libre para uso, modificación y distribución.
 
 ## ✍️ Autores
 
-**Luis Fernando Rodriguez Cruz & Nayeli Ortiz Garcia**  
+Luis Fernando Rodriguez Cruz & Nayeli Ortiz Garcia
 Desarrollado en una Raspberry Pi sin entorno gráfico, accediendo vía SSH desde Visual Studio Code.

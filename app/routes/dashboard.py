@@ -9,17 +9,21 @@ from flask import (
     stream_with_context, current_app, jsonify
 )
 
+# 🔐 Importar decorador de autenticación
+from app.routes.auth import login_required
+
 # -----------------------------------------------------------------------------  
 # Blueprint
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
 # -----------------------------------------------------------------------------  
 # Vistas HTML
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 
 @dashboard_bp.route('/')
+@login_required
 def index():
     """Página principal del dashboard (grid de cámaras)"""
     cam_ids = current_app.camera_manager.device_ids
@@ -27,7 +31,14 @@ def index():
 
 # -----------------------------------------------------------------------------  
 # MJPEG Streaming
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
+
+@dashboard_bp.route('/video_feed/<int:camera_id>')
+@login_required
+def video_feed(camera_id):
+    """Endpoint MJPEG: /dashboard/video_feed/<camera_id>"""
+    return Response(stream_with_context(gen_mjpeg(camera_id)),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 def gen_mjpeg(camera_id: int):
     """Generador MJPEG usando el CameraManager del servidor."""
@@ -54,17 +65,12 @@ def gen_mjpeg(camera_id: int):
         fps = getattr(cam, 'fps', 30)
         time.sleep(1.0 / fps)
 
-@dashboard_bp.route('/video_feed/<int:camera_id>')
-def video_feed(camera_id):
-    """Endpoint MJPEG: /dashboard/video_feed/<camera_id>"""
-    return Response(stream_with_context(gen_mjpeg(camera_id)),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
 # -----------------------------------------------------------------------------  
 # Snapshot único (prueba rápida)
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 
 @dashboard_bp.route('/snapshot/<int:camera_id>')
+@login_required
 def snapshot(camera_id):
     """Devuelve una única imagen JPEG capturada en el momento."""
     cam = current_app.camera_manager.get_camera(camera_id)
@@ -84,9 +90,10 @@ def snapshot(camera_id):
 
 # -----------------------------------------------------------------------------  
 # Métricas del sistema
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 
 @dashboard_bp.route('/metrics')
+@login_required
 def metrics():
     """Devuelve uso de CPU, RAM y disco en JSON."""
     data = {
@@ -98,9 +105,10 @@ def metrics():
 
 # -----------------------------------------------------------------------------  
 # Eventos SSE (detecciones IA en tiempo real)
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
 
 @dashboard_bp.route('/events/<int:camera_id>')
+@login_required
 def stream_events(camera_id):
     """Stream de eventos IA (rostros, movimiento, gestos, conteo) vía SSE."""
 

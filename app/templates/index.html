@@ -145,19 +145,59 @@
       border-top: 1px solid var(--border);
       padding: 8px 0;
       display: flex;
-      align-items: center;
-      gap: 8px;
+      align-items: flex-start;
+      gap: 12px;
       font-size: 0.88rem;
     }
     .history .event-item:first-child { border: none }
     .history .event-item .dot {
       width: 12px; height:12px; border-radius:50%;
+      flex-shrink: 0;
+    }
+    .event-details {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .event-details img {
+      max-width: 160px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
     }
   </style>
 </head>
 <body>
 
   <h1>PiVision IA – Dashboard</h1>
+
+
+  <div style="position: fixed; top: 15px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px;">
+    <span style="color: #ccc; font-size: 14px; font-family: sans-serif;">
+        👤 {{ session.username }}
+    </span>
+    <form action="/logout" method="get">
+        <button type="submit" style="
+            padding: 10px 18px;
+            background: linear-gradient(145deg, #ff4b2b, #ff416c);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease-in-out;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            <span style="font-size: 18px;">⏻</span> Cerrar sesión
+        </button>
+    </form>
+</div>
+
+
+
 
   <!-- Stream MJPEG -->
   <img id="video" src="/dashboard/video_feed/0" alt="Feed cámara 0">
@@ -220,7 +260,6 @@
     const MAX_HISTORY = 200;
     let historyBuffer = [];
 
-    // Para almacenar el último evento de cada tipo
     const lastByType = {
       motion: null,
       face: null,
@@ -238,7 +277,6 @@
 
     const types = ['motion','face','gesture','people_count'];
 
-    // References a las cards
     const cards = {};
     types.forEach(t => {
       cards[t] = {
@@ -247,14 +285,12 @@
       };
     });
 
-    // Formatea la hora HH:MM:SS
     const pad = n => n.toString().padStart(2, '0');
     const fmtTime = ts => {
       const d = new Date(ts);
       return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     };
 
-    // Actualiza la card de un tipo
     function updateCard(type, evt, ts) {
       const { timeEl, msgEl } = cards[type];
       timeEl.textContent = fmtTime(ts);
@@ -274,28 +310,39 @@
       }
     }
 
-    // Renderiza historial
     function renderHistory() {
       historyEl.innerHTML = '';
       historyBuffer.slice(0, MAX_HISTORY).forEach(item => {
         const div = document.createElement('div');
         div.className = 'event-item';
+
         const dot = document.createElement('div');
         dot.className = 'dot ' + item.type;
+
         const text = document.createElement('div');
-        text.textContent = `[${fmtTime(item.ts)}] ${item.type.toUpperCase()}: ` +
-          ({
-            motion: `${item.n} contornos`,
-            face:   `Rostro=${item.label||'Desconocido'}`,
-            gesture:`Gesto=${item.gesture||'—'}`,
-            people_count:`Personas=${item.count}`
-          }[item.type]);
+        text.className = 'event-details';
+        const line = `[${fmtTime(item.ts)}] ${item.type.toUpperCase()}: ` +
+          (item.type === 'motion' ? `${item.n} contornos` :
+           item.type === 'face' ? `Rostro=${item.label||'Desconocido'}` :
+           item.type === 'gesture' ? `Gesto=${item.gesture||'—'}` :
+           item.type === 'people_count' ? `Personas=${item.count}` :
+           '');
+
+        const p = document.createElement('div');
+        p.textContent = line;
+        text.appendChild(p);
+
+        if (item.img && item.img.startsWith('data:image')) {
+          const snapshot = document.createElement('img');
+          snapshot.src = item.img;
+          text.appendChild(snapshot);
+        }
+
         div.append(dot, text);
         historyEl.appendChild(div);
       });
     }
 
-    // Toggle historial
     toggleBtn.addEventListener('click', () => {
       historyEl.classList.toggle('hidden');
       toggleBtn.textContent = historyEl.classList.contains('hidden')
@@ -304,7 +351,6 @@
       if (!historyEl.classList.contains('hidden')) renderHistory();
     });
 
-    // Recibe SSE
     src.onmessage = ({ data }) => {
       let arr;
       try { arr = JSON.parse(data) } catch { return; }
@@ -317,9 +363,7 @@
           mem.textContent = `${evt.memory}%`;
           dsk.textContent = `${evt.disk}%`;
         } else if (types.includes(evt.type)) {
-          // guardamos en historial
           historyBuffer.unshift({ ...evt, ts: now });
-          // actualizamos último por tipo
           lastByType[evt.type] = { evt, ts: now };
           updateCard(evt.type, evt, now);
         }

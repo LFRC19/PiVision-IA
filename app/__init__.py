@@ -1,8 +1,6 @@
-# app/__init__.py
-
 import os
 from pathlib import Path
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for, session
 from app.multi_camera_manager import MultiCameraManager
 from app.camera_manager import CameraManager  # usado para detectar
 
@@ -13,6 +11,9 @@ def create_app():
         static_folder='static',
         template_folder='templates'
     )
+
+    # 🔐 Clave secreta para sesiones
+    app.secret_key = "clave_super_secreta_123"  # cambia por una clave segura y privada
 
     # 2) Configuración
     base_dir    = Path(__file__).resolve().parent.parent
@@ -40,14 +41,18 @@ def create_app():
     # ← Esta línea es CRUCIAL para que Blueprint acceda
     app.camera_manager = manager
 
-    # 5) Página raíz (opcional)
+    # 5) Página raíz → Redirigir a login si no hay sesión
     @app.route('/')
     def home():
+        if 'user_id' not in session:
+            return redirect(url_for('auth.login'))
         return render_template('index.html', camera_ids=device_ids)
 
-    # 6) Registrar Blueprint
+    # 6) Registrar Blueprints
     from app.routes.dashboard import dashboard_bp
+    from app.routes.auth import auth_bp  # blueprint de login/logout
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+    app.register_blueprint(auth_bp)
 
     # 7) Liberar recursos al cerrar
     @app.teardown_appcontext
