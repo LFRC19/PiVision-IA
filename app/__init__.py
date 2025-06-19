@@ -3,6 +3,7 @@ from pathlib import Path
 from flask import Flask, render_template, redirect, url_for, session
 from app.multi_camera_manager import MultiCameraManager
 from app.camera_manager import CameraManager  # usado para detectar
+from app.routes.api import api_bp
 
 def create_app():
     # 1) Crear app Flask
@@ -56,7 +57,8 @@ def create_app():
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(auth_bp)
     app.register_blueprint(notifications_bp)
-
+    app.register_blueprint(api_bp)
+    
     # 7) Liberar recursos al cerrar
     @app.teardown_appcontext
     def shutdown_manager(exc=None):
