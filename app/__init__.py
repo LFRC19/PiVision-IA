@@ -50,9 +50,12 @@ def create_app():
 
     # 6) Registrar Blueprints
     from app.routes.dashboard import dashboard_bp
-    from app.routes.auth import auth_bp  # blueprint de login/logout
+    from app.routes.auth import auth_bp
+    from app.routes.notifications import notifications_bp  # nuevo blueprint
+
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(auth_bp)
+    app.register_blueprint(notifications_bp)
 
     # 7) Liberar recursos al cerrar
     @app.teardown_appcontext

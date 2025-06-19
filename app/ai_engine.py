@@ -1,5 +1,7 @@
 # app/ai_engine.py
 
+# app/ai_engine.py
+
 import time
 import cv2
 from datetime import datetime
@@ -13,6 +15,7 @@ from face_matcher             import FaceMatcher
 from db                       import Database
 from person_tracker           import CentroidTracker
 from app.system_monitor       import get_system_metrics
+from utils.notifier           import send_notification_if_gesture  # ← nuevo
 
 class AIPipeline:
     def __init__(self, cam_id, width, height):
@@ -38,12 +41,6 @@ class AIPipeline:
         self.recent_events = deque()
 
     def process(self, frame):
-        """
-        Procesa un frame:
-         - Detecta movimiento, rostros, gestos y cruces de línea  
-         - Registra cada evento inmediatamente en self.recent_events  
-        Retorna el frame con overlays y la lista de eventos del frame.
-        """
         events = []
         now = time.time()
         h, w = frame.shape[:2]
@@ -72,13 +69,20 @@ class AIPipeline:
                 events.append({"type": "face", "label": label})
                 face_count += 1
 
-        # Emitimos evento de conteo de personas detectadas en la cámara
         events.append({"type": "people_count", "count": face_count})
 
         # 3) Gestos
-        g_evt = self.gesture_handler.analyze(self.cam_id, frame)
+        result = self.gesture_handler.analyze(self.cam_id, frame)
+
+        if isinstance(result, tuple):
+            g_evt, image_path = result
+        else:
+            g_evt, image_path = result, None
+
         if g_evt:
             events.append({"type": "gesture", "gesture": g_evt})
+            if image_path:
+                send_notification_if_gesture(image_path)
 
         # 4) Tracking y cruces de línea
         LINE = h // 2
@@ -99,11 +103,10 @@ class AIPipeline:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
             cv2.rectangle(frame, (cx-5, cy-5), (cx+5, cy+5), (0,255,0), 1)
 
-        # overlays de rostros
         for (x, y, w0, h0) in rects:
             cv2.rectangle(frame, (x, y), (x+w0, y+h0), (0,255,255), 1)
 
-        # Registrar todos los eventos con timestamp
+        # Timestamp para todos los eventos
         ts = datetime.now().isoformat()
         for evt in events:
             evt["timestamp"] = ts
@@ -112,11 +115,6 @@ class AIPipeline:
         return frame, events
 
     def get_last_events(self):
-        """
-        Devuelve todos los eventos acumulados desde la última llamada,
-        más un evento 'metrics' con CPU/RAM/Disco.
-        Luego vacía la cola para no repetirlos.
-        """
         events = list(self.recent_events)
         self.recent_events.clear()
         events.append(get_system_metrics())

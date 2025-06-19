@@ -109,4 +109,4 @@ class GestureHandler:
 
         # Mensaje de consola
         print(f"[GESTO] Cam {cam_id}: {gesture} detectado -> {filename}")
-        return gesture   #  ← ←  DEVUELVE el gesto para AIPipeline
+        return (gesture, filename)   #  ← ←  DEVUELVE el gesto para AIPipeline y el nombre del archivo

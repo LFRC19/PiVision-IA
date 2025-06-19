@@ -73,7 +73,7 @@
       max-width: 880px;
       padding: var(--pad);
     }
-    .preview h2 { margin-bottom: 12px }
+    .preview h2 { margin-bottom: 12px; }
     .cards {
       display: flex;
       gap: 12px;
@@ -140,7 +140,7 @@
       margin-bottom: 12px;
       font-size: 0.9rem;
     }
-    .history.hidden { display: none }
+    .history.hidden { display: none; }
     .history .event-item {
       border-top: 1px solid var(--border);
       padding: 8px 0;
@@ -149,7 +149,7 @@
       gap: 12px;
       font-size: 0.88rem;
     }
-    .history .event-item:first-child { border: none }
+    .history .event-item:first-child { border: none; }
     .history .event-item .dot {
       width: 12px; height:12px; border-radius:50%;
       flex-shrink: 0;
@@ -164,45 +164,65 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
     }
+
+    /* BOTONES FIJOS */
+    .btn-fixed {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      text-decoration: none;
+    }
+    .btn-fixed button {
+      padding: 12px 18px;
+      background: linear-gradient(145deg, #3498db, #2980b9);
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+    .btn-fixed button:hover {
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body>
 
   <h1>PiVision IA – Dashboard</h1>
 
-
+  <!-- Botón Logout y usuario -->
   <div style="position: fixed; top: 15px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px;">
     <span style="color: #ccc; font-size: 14px; font-family: sans-serif;">
-        👤 {{ session.username }}
+      👤 {{ session.username }}
     </span>
     <form action="/logout" method="get">
-        <button type="submit" style="
-            padding: 10px 18px;
-            background: linear-gradient(145deg, #ff4b2b, #ff416c);
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            border: none;
-            border-radius: 30px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s ease-in-out;
-        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-            <span style="font-size: 18px;">⏻</span> Cerrar sesión
-        </button>
+      <button type="submit" style="
+        padding: 10px 18px;
+        background: linear-gradient(145deg, #ff4b2b, #ff416c);
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        border-radius: 30px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease-in-out;
+      ">
+        <span style="font-size: 18px;">⏻</span> Cerrar sesión
+      </button>
     </form>
-</div>
-
-
-
+  </div>
 
   <!-- Stream MJPEG -->
   <img id="video" src="/dashboard/video_feed/0" alt="Feed cámara 0">
 
-  <!-- Métricas -->
+  <!-- Métricas del sistema -->
   <section class="metrics">
     <h2>Métricas del Sistema</h2>
     <div class="metrics-grid">
@@ -212,7 +232,7 @@
     </div>
   </section>
 
-  <!-- Previsualización Últimos Eventos por Tipo -->
+  <!-- Previsualización Últimos Eventos -->
   <section class="preview">
     <h2>Último Evento de Cada Tipo</h2>
     <div class="cards">
@@ -241,7 +261,6 @@
         <div class="msg">Esperando...</div>
       </div>
     </div>
-    <!-- Leyenda de colores -->
     <div class="legend">
       <div class="legend-item"><div class="dot motion"></div>Movimiento</div>
       <div class="legend-item"><div class="dot face"></div>Rostro</div>
@@ -250,38 +269,36 @@
     </div>
   </section>
 
-  <!-- Historial Completo -->
+  <!-- Historial completo -->
   <section class="events">
     <button id="toggle-history">Ver historial completo</button>
     <div id="history" class="history hidden"></div>
   </section>
 
+  <!-- Botón Notificaciones -->
+  <a href="/dashboard/notifications" class="btn-fixed">
+    <button>⚙️ Notificaciones</button>
+  </a>
+
   <script>
     const MAX_HISTORY = 200;
     let historyBuffer = [];
 
-    const lastByType = {
-      motion: null,
-      face: null,
-      gesture: null,
-      people_count: null
-    };
+    const lastByType = { motion: null, face: null, gesture: null, people_count: null };
 
     const src = new EventSource('/dashboard/events/0');
     const cpu = document.getElementById('cpu');
     const mem = document.getElementById('memory');
     const dsk = document.getElementById('disk');
-
     const toggleBtn = document.getElementById('toggle-history');
     const historyEl = document.getElementById('history');
-
     const types = ['motion','face','gesture','people_count'];
 
     const cards = {};
     types.forEach(t => {
       cards[t] = {
-        timeEl:   document.querySelector(`#card-${t} .time`),
-        msgEl:    document.querySelector(`#card-${t} .msg`)
+        timeEl: document.querySelector(`#card-${t} .time`),
+        msgEl:  document.querySelector(`#card-${t} .msg`)
       };
     });
 
@@ -295,18 +312,10 @@
       const { timeEl, msgEl } = cards[type];
       timeEl.textContent = fmtTime(ts);
       switch(type) {
-        case 'motion':
-          msgEl.textContent = `Contornos: ${evt.n}`;
-          break;
-        case 'face':
-          msgEl.textContent = `Label: ${evt.label || 'Desconocido'}`;
-          break;
-        case 'gesture':
-          msgEl.textContent = `Gesto: ${evt.gesture || '—'}`;
-          break;
-        case 'people_count':
-          msgEl.textContent = `Total: ${evt.count}`;
-          break;
+        case 'motion':      msgEl.textContent = `Contornos: ${evt.n}`; break;
+        case 'face':        msgEl.textContent = `Label: ${evt.label||'Desconocido'}`; break;
+        case 'gesture':     msgEl.textContent = `Gesto: ${evt.gesture||'—'}`; break;
+        case 'people_count':msgEl.textContent = `Total: ${evt.count}`; break;
       }
     }
 
@@ -315,29 +324,23 @@
       historyBuffer.slice(0, MAX_HISTORY).forEach(item => {
         const div = document.createElement('div');
         div.className = 'event-item';
-
         const dot = document.createElement('div');
         dot.className = 'dot ' + item.type;
-
         const text = document.createElement('div');
         text.className = 'event-details';
         const line = `[${fmtTime(item.ts)}] ${item.type.toUpperCase()}: ` +
-          (item.type === 'motion' ? `${item.n} contornos` :
-           item.type === 'face' ? `Rostro=${item.label||'Desconocido'}` :
-           item.type === 'gesture' ? `Gesto=${item.gesture||'—'}` :
-           item.type === 'people_count' ? `Personas=${item.count}` :
-           '');
-
+                     (item.type==='motion' ? `${item.n} contornos` :
+                      item.type==='face'   ? `Rostro=${item.label||'Desconocido'}` :
+                      item.type==='gesture'? `Gesto=${item.gesture||'—'}` :
+                      `Personas=${item.count}`);
         const p = document.createElement('div');
         p.textContent = line;
         text.appendChild(p);
-
-        if (item.img && item.img.startsWith('data:image')) {
-          const snapshot = document.createElement('img');
-          snapshot.src = item.img;
-          text.appendChild(snapshot);
+        if(item.img && item.img.startsWith('data:image')) {
+          const img = document.createElement('img');
+          img.src = item.img;
+          text.appendChild(img);
         }
-
         div.append(dot, text);
         historyEl.appendChild(div);
       });
@@ -348,27 +351,44 @@
       toggleBtn.textContent = historyEl.classList.contains('hidden')
         ? 'Ver historial completo'
         : 'Ocultar historial';
-      if (!historyEl.classList.contains('hidden')) renderHistory();
+      if(!historyEl.classList.contains('hidden')) renderHistory();
     });
 
     src.onmessage = ({ data }) => {
       let arr;
-      try { arr = JSON.parse(data) } catch { return; }
-      if (!Array.isArray(arr)) return;
-
+      try { arr = JSON.parse(data); } catch { return; }
+      if(!Array.isArray(arr)) return;
       const now = Date.now();
       arr.forEach(evt => {
-        if (evt.type === 'metrics') {
-          cpu.textContent = `${evt.cpu}%`;
-          mem.textContent = `${evt.memory}%`;
-          dsk.textContent = `${evt.disk}%`;
-        } else if (types.includes(evt.type)) {
+        if(evt.type === 'metrics') {
+          cpu.textContent = `${evt.cpu}%`; mem.textContent = `${evt.memory}%`; dsk.textContent = `${evt.disk}%`;
+        } else if(types.includes(evt.type)) {
           historyBuffer.unshift({ ...evt, ts: now });
-          lastByType[evt.type] = { evt, ts: now };
           updateCard(evt.type, evt, now);
+        }
+        // Notificación visual de gesto
+        if(evt.type === 'gesture') {
+          const div = document.createElement('div');
+          div.textContent = `🔔 Correo enviado: Gesto "${evt.gesture}" detectado`;
+          Object.assign(div.style, {
+            position: 'fixed',
+            bottom: '80px',
+            right: '20px',
+            background: '#2ecc71',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 0 10px rgba(0,0,0,0.4)',
+            fontWeight: 'bold',
+            fontFamily: 'sans-serif',
+            zIndex: 9999
+          });
+          document.body.appendChild(div);
+          setTimeout(() => div.remove(), 5000);
         }
       });
     };
   </script>
+
 </body>
 </html>
