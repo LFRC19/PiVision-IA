@@ -1,12 +1,14 @@
 # app/routes/dashboard.py
 
+import os
 import time
 import cv2
 import psutil
 import json
 from flask import (
     Blueprint, render_template, Response,
-    stream_with_context, current_app, jsonify
+    stream_with_context, current_app, jsonify,
+    request, flash
 )
 
 # 🔐 Importar decorador de autenticación
@@ -28,6 +30,45 @@ def index():
     """Página principal del dashboard (grid de cámaras)"""
     cam_ids = current_app.camera_manager.device_ids
     return render_template('index.html', camera_ids=cam_ids)
+
+# -----------------------------------------------------------------------------  
+# Configuración de Notificaciones
+# -----------------------------------------------------------------------------  
+
+@dashboard_bp.route("/notifications", methods=["GET", "POST"])
+@login_required
+def notifications_config():
+    config_path = os.path.join("config", "notifications.json")
+
+    # Leer configuración actual
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            config = json.load(f)
+    else:
+        config = {
+            "email_enabled": False,
+            "email_to": "",
+            "telegram_enabled": False,
+            "telegram_chat_id": "",
+            "cooldown_seconds": 60
+        }
+
+    if request.method == "POST":
+        config["email_enabled"] = "email_enabled" in request.form
+        config["telegram_enabled"] = "telegram_enabled" in request.form
+        config["email_to"] = request.form.get("email_to", "").strip()
+        config["telegram_chat_id"] = request.form.get("telegram_chat_id", "").strip()
+        config["cooldown_seconds"] = int(request.form.get("cooldown_seconds", 60))
+
+        try:
+            os.makedirs("config", exist_ok=True)
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=4)
+            flash("✅ Configuración guardada con éxito.", "success")
+        except Exception as e:
+            flash(f"❌ Error al guardar configuración: {e}", "error")
+
+    return render_template("notifications.html", config=config)
 
 # -----------------------------------------------------------------------------  
 # MJPEG Streaming

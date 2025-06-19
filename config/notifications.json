@@ -1,5 +1,10 @@
 {
     "email_enabled": true,
     "email_to": "luisfernandorc16@gmail.com",
+  
+    "telegram_enabled": true,
+    "telegram_chat_id": "7950367373",
+  
     "cooldown_seconds": 60
-}
+  }
+  
