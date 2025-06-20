@@ -4,7 +4,7 @@ SQLALCHEMY_DATABASE_URI = 'sqlite:///../database/pivision.db'
 DEBUG = True
 
 # IDs de tus cámaras (pueden ser índices 0, 1, 2… o cadenas con device paths)
-CAMERA_IDS = [0]
+CAMERA_IDS = [0,2]
 
 EMAIL_SERVER = "smtp.gmail.com"
 EMAIL_PORT = 465

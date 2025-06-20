@@ -30,11 +30,20 @@
     }
     h1 { text-align: center }
 
-    /* STREAM MJPEG */
-    #video {
+    /* GRID DE STREAMS */
+    .camera-grid {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 1400px;
+    }
+    .video-stream {
       border: 2px solid var(--border);
       border-radius: var(--radius);
       max-width: 100%;
+      flex: 1 1 45%;
     }
 
     /* MÉTRICAS */
@@ -219,10 +228,17 @@
     </form>
   </div>
 
-  <!-- Stream MJPEG -->
-  <img id="video" src="/dashboard/video_feed/0" alt="Feed cámara 0">
+  <!-- STREAMS MJPEG: muestra todas las cámaras -->
+  <div class="camera-grid">
+    {% for cam_id in camera_ids %}
+      <img
+        class="video-stream"
+        src="{{ url_for('dashboard.video_feed', camera_id=cam_id) }}"
+        alt="Feed cámara {{ cam_id }}">
+    {% endfor %}
+  </div>
 
-  <!-- Métricas del sistema -->
+  <!-- MÉTRICAS -->
   <section class="metrics">
     <h2>Métricas del Sistema</h2>
     <div class="metrics-grid">

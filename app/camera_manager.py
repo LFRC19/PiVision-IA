@@ -3,16 +3,20 @@
 import cv2, threading, time
 from app.ai_engine import AIPipeline
 
-class CameraManager:
+# ---------------------------------------------------------------------
+# Cámara individual
+# ---------------------------------------------------------------------
+class Camera:
     def __init__(self, device_id, width=640, height=480, fps=30):
         self.device_id = device_id
-        self.width, self.height, self.fps = width, height, fps
+        self.width = width
+        self.height = height
+        self.fps = fps
         self.cap = None
         self.frame = None
         self.running = False
         self.lock = threading.Lock()
 
-        # Instancia del motor IA para esta cámara
         self.pipeline = AIPipeline(device_id, width, height)
 
     def start(self):
@@ -34,8 +38,6 @@ class CameraManager:
                 continue
 
             frame = cv2.resize(frame, (self.width, self.height))
-
-            # Procesamiento IA
             processed_frame, _ = self.pipeline.process(frame)
 
             with self.lock:
@@ -53,6 +55,51 @@ class CameraManager:
         if self.cap is not None:
             self.cap.release()
             self.cap = None
+
+# ---------------------------------------------------------------------
+# Manager para múltiples cámaras
+# ---------------------------------------------------------------------
+class CameraManager:
+    def __init__(self, device_ids, width=640, height=480, fps=30):
+        self.device_ids = device_ids
+        self.cameras = {}
+        self.width = width
+        self.height = height
+        self.fps = fps
+
+        for cam_id in device_ids:
+            self.cameras[cam_id] = Camera(cam_id, width, height, fps)
+
+    def get_camera(self, cam_id):
+        return self.cameras.get(cam_id)
+
+    def get_camera_list(self):
+        return list(self.cameras.keys())
+
+    def generate(self, cam_id):
+        cam = self.get_camera(cam_id)
+        if not cam:
+            return
+
+        if not getattr(cam, 'running', False):
+            cam.start()
+            time.sleep(0.1)
+
+        while True:
+            frame = cam.read_frame()
+            if frame is None:
+                time.sleep(0.01)
+                continue
+
+            ok, jpeg = cv2.imencode('.jpg', frame)
+            if not ok:
+                time.sleep(0.01)
+                continue
+
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+
+            time.sleep(1.0 / self.fps)
 
     @classmethod
     def detect_cameras(cls, max_test=5):

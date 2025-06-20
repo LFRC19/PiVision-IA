@@ -1,6 +1,6 @@
 # PiVision IA 🎥🧠
 
-Sistema de detección de rostros basado en inteligencia artificial, diseñado para ejecutarse de forma completamente headless en una Raspberry Pi con **Raspberry Pi OS Lite**. Ideal como nuestro proyecto de residencia profesional, solución de videovigilancia, o base para sistemas de visión artificial embebidos.
+Sistema de detección de rostros basado en inteligencia artificial, diseñado para ejecutarse de forma completamente headless en una Raspberry Pi con **Raspberry Pi OS Lite**. Ideal como proyecto de residencia profesional, solución de videovigilancia o base para sistemas de visión artificial embebidos.
 
 ---
 
@@ -23,9 +23,9 @@ Sistema de detección de rostros basado en inteligencia artificial, diseñado pa
 * ✅ Matching facial con umbral configurable
 * ✅ Captura y logging con cooldown
 * ✅ Organización de capturas por sesiones
-* ✅ **Servidor Flask** con MJPEG streaming (`/video_feed/<cam_id>`)
+* ✅ **Servidor Flask** con MJPEG streaming (`/dashboard/video_feed/<cam_id>`)
 * ✅ **Dashboard DVR** accesible desde navegador
-* ✅ **Notificaciones por correo y Telegram**
+* ✅ **Notificaciones por correo y Telegram** (sólo ante gestos)
 * ✅ **Panel web de configuración de alertas**
 * ✅ **API REST**:  
   - `GET /api/v1/cameras` (lista las cámaras activas)  
@@ -35,136 +35,138 @@ Sistema de detección de rostros basado en inteligencia artificial, diseñado pa
 
 ## 🧠 Arquitectura del Proyecto
 
-PiVision-IA/
-├── app/
-│   ├── __init__.py
-│   ├── ai_engine.py
-│   ├── camera_manager.py
-│   ├── multi_camera_manager.py
-│   ├── face_detector.py
-│   ├── face_mesh_processor.py
-│   ├── face_normalizer.py
-│   ├── face_signature.py
-│   ├── frame_processor.py
-│   ├── gesture_handler.py
-│   ├── system_monitor.py
-│   ├── routes/
-│   │   ├── dashboard.py
-│   │   ├── auth.py
-│   │   └── api.py
-│   └── templates/
-│       ├── index.html
-│       └── notifications.html
-├── config/
-│   ├── settings.py
-│   └── notifications.json
-├── database/
-│   └── pivision.db
-├── models/
-│   ├── deploy.prototxt
-│   ├── res10_300x300_ssd_iter_140000_fp16.caffemodel
-│   └── mobilefacenet.tflite
-├── utils/
-│   ├── email_alert.py
-│   └── telegram_alert.py
-├── tests/
-│   ├── test_email.py
-│   └── test_telegram.py
-├── vision.py
-├── register_face.py
-├── init_db.py
-├── db.py
-├── face_encoder.py
-│   ├── face_matcher.py
-│   └── notifier.py
-├── static/
-├── log/
-│   └── eventos.log
-├── rostros/
-├── sessions/
-├── .gitignore
-├── requirements.txt
-└── README.md
+PiVision-IA/  
+├── app/  
+│   ├── __init__.py  
+│   ├── ai_engine.py  
+│   ├── camera_manager.py  
+│   ├── multi_camera_manager.py  
+│   ├── frame_processor.py  
+│   ├── face_mesh_processor.py  
+│   ├── face_normalizer.py  
+│   ├── gesture_handler.py  
+│   ├── system_monitor.py  
+│   ├── routes/  
+│   │   ├── dashboard.py  
+│   │   ├── auth.py  
+│   │   └── api.py  
+│   └── templates/  
+│       ├── index.html  
+│       └── notifications.html  
+├── config/  
+│   ├── settings.py  
+│   └── notifications.json  
+├── database/  
+│   └── pivision.db  
+├── models/  
+│   ├── deploy.prototxt  
+│   ├── res10_300x300_ssd_iter_140000_fp16.caffemodel  
+│   └── mobilefacenet.tflite  
+├── utils/  
+│   ├── email_alert.py  
+│   └── telegram_alert.py  
+├── tests/  
+│   ├── test_email.py  
+│   └── test_telegram.py  
+├── vision.py  
+├── register_face.py  
+├── init_db.py  
+├── db.py  
+├── face_encoder.py  
+│   ├── face_matcher.py  
+│   └── notifier.py  
+├── static/  
+├── log/  
+│   └── eventos.log  
+├── sessions/  
+├── .env.example  
+├── config/settings.py  
+├── requirements.txt  
+└── README.txt
 
 ---
 
 ## ⚙️ Dependencias
 
 ```bash
-sudo apt install python3-opencv
-pip install tflite-runtime mediapipe numpy opencv-python-headless flask psutil
+sudo apt update
+sudo apt install -y python3-opencv v4l-utils
+pip install -r requirements.txt
+pip install python-dotenv
 ```
 
-- **tflite-runtime**: Modelo MobileFaceNet
-- **mediapipe**: Face detection, Face Mesh, Holistic
-- **opencv-python-headless**: Procesamiento de video
-- **flask**: Servidor web y dashboard
-- **psutil**: Métricas CPU/RAM/disco
-- **numpy**: Cálculos vectoriales
+**requirements.txt** debe incluir:
+```
+flask
+tflite-runtime
+mediapipe
+numpy
+opencv-python-headless
+psutil
+python-dotenv
+```
 
 ---
 
-## 🧠 Reconocimiento Facial
+## ⚙️ Configuración
 
-- MobileFaceNet en TFLite (`models/mobilefacenet.tflite`)
-- `face_encoder.py` para extracción de vectores
-- `face_matcher.py` para matching con umbral
-- Registro manual con `register_face.py`
-- Base de datos `pivision.db` con:
-  - Tabla `users`
-  - Tabla `known_faces`
-  - Tabla `detection_events`
+1. **`.env`** (a crear en la raíz):
+   ```dotenv
+   # --- Acelerador TPU (Edge TPU / Hailo) ---
+   USE_TPU=false
 
----
+   # --- Parámetros IA dinámicos ---
+   FACE_MATCH_THRESHOLD=0.45
+   GESTURE_DETECTION_CONFIDENCE=0.7
+   DETECTION_FRAME_SKIP=2
+   ```
 
-## 🔔 Sistema de Notificaciones
+2. **Cámaras**: ajusta `config/settings.py` según índices válidos:
+   ```python
+   CAMERA_IDS = [0, 2]  # según v4l2-ctl --list-devices
+   ```
 
-- 📧 Envío de correos desde `pivision.alerts@gmail.com`
-- 💬 Envío de mensajes por Telegram (requiere Bot + chat_id)
-- 🧠 Solo se activa ante **gestos detectados**
-- 🕐 Cooldown mínimo de 60s por seguridad
-- 🌐 Configurable desde el panel web `/dashboard/notifications`
-
----
-
-## 🔐 Gestión de Usuarios
-
-- Login con contraseña protegida
-- Sesiones vía `Flask.session`
-- Decoradores `@login_required`
-- Nombre del usuario visible
-- Logout con botón moderno
-- Cámaras operan incluso tras cerrar sesión
+3. **Notificaciones**:
+   - Panel web: `/dashboard/notifications`
+   - Configura email y Telegram, con cooldown configurable.
 
 ---
 
-## 🧪 Estado Funcional Actual
+## 🏁 Uso
 
-- `python3 -m app.vision --nogui` para correr sin interfaz
-- Web accesible vía navegador en `/`
-- Dashboard con stream, métricas, historial, y cards
-- Eventos SSE en tiempo real
-- Captura organizada y logging completo
+```bash
+# Activar .env
+cp .env.example .env
+# Edita .env y settings.py
+python server.py
+```
+
+Abre en tu navegador: `http://<IP_de_tu_Pi>:5000/`
 
 ---
 
-## 🚀 Próximas Fases
+## 🧪 Medición de rendimiento
 
-1. 🧪 Testing con `pytest`
-2. 🔄 Service con `systemd`
-3. 📚 Documentación final
-4. ☁️ Hosting remoto / visualización externa
-5. 🧠 Mejora de modelos (detección, embeddings, tracking)
+- En consola ves:
+  ```
+  [DEBUG] Tiempo de inferencia facial: 0.113 s
+  ```
+- Compara CPU vs TPU (al activar `USE_TPU=true`).
+- Ajusta `DETECTION_FRAME_SKIP` para mejorar FPS.
+
+---
+
+## 📝 Contribuir y GitHub
+
+```bash
+git add .
+git commit -m "chore: versión estable con multi-cámara, TPU, config dinámica"
+git push origin main
+```
 
 ---
 
 ## 🔒 Licencia
 
-MIT License — libre para uso, modificación y distribución.
+MIT License
 
----
-
-## ✍️ Autores
-
-**Luis Fernando Rodriguez Cruz & Nayeli Ortiz Garcia**  
-Desarrollado 100% sin entorno gráfico en Raspberry Pi (headless SSH).
